@@ -1,0 +1,10 @@
+~/arduino-1.6.3/libraries/max7219
+~/arduino-1.6.3/hardware/arduino/avr/cores/arduino
+~/arduino-1.6.3/hardware/tools/avr/avr/include
+~/arduino-1.6.3/hardware/arduino/avr/cores/arduino
+~/arduino-1.6.3/libraries/SoftwareSerial/src
+//F:/Arduino/libraries/max7219
+//F:/Arduino/hardware/arduino/avr/cores/arduino
+//F:/Program/Arduino/hardware/tools/avr/avr/include
+//F:/Program/Arduino/libraries/max7219
+//F:/Program/Arduino/libraries/SoftwareSerial/src
