@@ -9,19 +9,19 @@ class QByteArray {
 
     public:
         QByteArray();
-        QByteArray( char* bytes, int length );
+        QByteArray( unsigned char* bytes, int length );
         QByteArray( const string str );
         unsigned char at( int index );
         QByteArray mid( int from, int length );
-        void prepend( char c );
-        QByteArray append( char c );
+        void prepend( unsigned char c );
+        QByteArray append( unsigned char c );
         string to_string();
-        const char* c_str();
+        const unsigned char* c_str();
         bool eq( const string str );
-        bool eq( const char c );
+        bool eq( const unsigned char c );
     private:
         static const int max_size = 65536;
-        char buf[ max_size ];
+        unsigned char buf[ max_size ];
         int buf_length;
 };
 

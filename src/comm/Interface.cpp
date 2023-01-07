@@ -130,9 +130,9 @@ void Interface::processLineRequest( Serial serial ) {
 void Interface::processGetOpenFileSize( Serial serial ) {
     unsigned short size = disk.openedFileSize();
     QByteArray data;
-    char high = size >> 8, low = size bitand 0xff;
+    unsigned char high = size >> 8, low = size bitand 0xff;
     serial.Send( data.append( 'S' ).append( high ).append( low).to_string() );
-    printf( "\tGetOpenFileSize: Returning file size: %d (%02X %02X)\n", size, high, low );
+    printf( "<--- Send file size: %u = %04X (H:%02X L:%02X)\n", size, size, high, low );
 } // processGetOpenedFileSize
 
 /**

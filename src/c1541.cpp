@@ -65,6 +65,7 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
         char cmd1 = buffer.getFirstChar();
         unsigned char data_length;
         unsigned char channel;
+        if ( debug ) buffer.show_content(); // For debug only
         switch( cmd1 ) {
             case 'O' : // 4F 04 00 24
                 data_length = buffer.getSecondChar();
@@ -82,8 +83,10 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
                 m_iface.processLineRequest( serial );
                 break;
             case 'D' : // 44 45 46
-                message = buffer.getToCr();
-                printf( "\n\tArduino Debug (%d): '%s'\n", message.length(), message.c_str() );
+                if ( buffer.isCompleteFirstLine() ) {
+                    message = buffer.getToCr();
+                    printf( "\n\tArduino Debug (%d): '%s'\n", message.length(), message.c_str() );
+                }
                 break;
             case 'C' :
                 buffer.getFirstChars( 1 );

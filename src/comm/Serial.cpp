@@ -59,11 +59,12 @@ int Serial::Open( const char* serial_name, speed_t baud ) {
 }
 
 void Serial::Send( const string data ) {
-    write( serial_fd, data.c_str(), data.length() );
+    const char* data8 = data.c_str();
+    write( serial_fd, data8, data.length() );
     if ( debug ) {
         printf( "<--- Response sent (%d):", data.length() );
         for( int i=0; i<data.length(); i++ )
-            printf( " %02X", data.at(i) );
+            printf( " %02X", (unsigned char)data8[i] );
         printf( "\n" );
     }
 }

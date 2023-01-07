@@ -33,7 +33,7 @@ char Buffer::getSecondChar() { return buf[ 1 ]; }
 
 QByteArray Buffer::getFirstChars( int n ) {
     if ( top >= n ) {
-        char ret[ n ];
+        unsigned char ret[ n ];
         for( int i=0; i<n; i++ )
             ret[i]=buf[i];
         shift( n );
