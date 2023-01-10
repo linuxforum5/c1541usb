@@ -1,4 +1,10 @@
 #include "Prg.hpp"
+/**
+ * PRG fájlformátum
+ * - Start address low bíte
+ * - Start address high bíte
+ * - data bytes
+ */
 
 Prg::Prg( string filename ) : File() {
     size = 0;

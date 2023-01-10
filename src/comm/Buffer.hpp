@@ -11,7 +11,7 @@ class Buffer {
         Buffer();
         int length();
         bool isCompleteFirstLine();
-        int appendData( char* data, int length );
+        int appendData( const char* data, int length );
         char* readFirstLine();
         char getFirstChar();
         char getSecondChar();

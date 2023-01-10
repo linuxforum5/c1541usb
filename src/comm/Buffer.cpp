@@ -14,7 +14,7 @@ void Buffer::show_content() {
     printf( "\n" );
 }
 
-int Buffer::appendData( char* data, int length ) {
+int Buffer::appendData( const char* data, int length ) {
     int data_index = 0;
     if ( top + length < max_size ) {
         while( data_index < length ) {
@@ -31,7 +31,7 @@ bool Buffer::isCompleteFirstLine() { return firstEOL > -1; }
 char Buffer::getFirstChar() { return buf[ 0 ]; }
 char Buffer::getSecondChar() { return buf[ 1 ]; }
 
-QByteArray Buffer::getFirstChars( int n ) {
+QByteArray Buffer::getFirstChars( int n ) { // Read and drop firs chars
     if ( top >= n ) {
         unsigned char ret[ n ];
         for( int i=0; i<n; i++ )
@@ -69,11 +69,17 @@ void Buffer::dropFirstLine() {
 }
 
 void Buffer::shift( int n ) {
-    int i = n;
-    int j = 0;
-    while( i < top ) // Van mozgatandó adat
-        buf[ j++ ] = buf[ i++ ];
-    top -= n;
+    if ( n > 0 ) {
+        if ( n < top ) {
+            int i = n;
+            int j = 0;
+            while( i < top ) // Van mozgatandó adat
+                buf[ j++ ] = buf[ i++ ];
+            top -= n;
+        } else {
+            top = 0;
+        }
+    }
 }
 
 string Buffer::getToCr() {

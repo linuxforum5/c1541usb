@@ -9,6 +9,7 @@ DiskBase::DiskBase() {
     diskLabel = "DISK BASE";
     openedFilename = "";
     prg = "";
+    file = NULL;
 }
 
 bool DiskBase::setPrg( string prgFilename ) {
@@ -19,6 +20,8 @@ bool DiskBase::setPrg( string prgFilename ) {
 unsigned char DiskBase::getDeviceNumber() {
     return deviceNumber;
 }
+
+bool DiskBase::isDiskWriteProtected() { return false; }
 
 string DiskBase::getLabelLine() {
     int space_counter = 28 - diskLabel.length();
@@ -50,6 +53,26 @@ Prg* DiskBase::getOpenedFile() {
     }
 }
 
+CBM::IOErrorMessage DiskBase::fopenWrite( QByteArray filename, bool overwrite ) {
+    file = fopen( filename.append(".prg").c_str(), "wb" );
+    openedFilename = filename.to_string();
+    printf( "**** Open to %s '%s' file\n", overwrite ? "overwrite" : "create", filename.c_str() );
+    return CBM::ErrOK;
+}
+
+void DiskBase::write( QByteArray data ) {
+    const unsigned char* d = data.uc_str();
+    printf( "**** Write %d bytes into file\n", data.length() );
+    fwrite( d, data.length(), 1, file );
+}
+
+void DiskBase::closeFile() {
+    if ( file != NULL ) {
+        fclose( file );
+        file = NULL;
+    }
+}
+
 bool DiskBase::openFile( string filename ) {
     Prg prgfile( prg );
     if ( prgfile.exists() ) {
@@ -68,3 +91,5 @@ unsigned short DiskBase::openedFileSize() {
 int DiskBase::openedFilePosPercent() {
     return openedFile.getPosPercent();
 }
+
+string DiskBase::getOpenedFilename() { return openedFilename; }

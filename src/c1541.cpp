@@ -20,7 +20,7 @@
 
 using namespace std;
 
-bool debug = false;
+bool debug = true;
 // const unsigned char* response = "OK>8|5|4|3|7|2|2022-12-28.17:00:29\r";
 bool handshake_begin = false; // Ha megkezdtük a kapcsolódást
 bool connection_established = false; // Ha sikerült is
@@ -59,6 +59,13 @@ void processLine( Serial serial, char* data, int length, Interface &m_iface ) {
     }
 }
 
+/* ????????????????????
+void processAddNewFacility( const string& str ) {
+    //<---->Log("MAIN", QString("Got facility: %1").arg(str.mid(2)), success);
+    m_clientFacilities[ str.at(1) ] = str.mid(2);
+} // processAddNewFacility
+*/
+
 void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
     string message;
     if ( buffer.length() > 0 ) {
@@ -67,6 +74,24 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
         unsigned char channel;
         if ( debug ) buffer.show_content(); // For debug only
         switch( cmd1 ) {
+/*
+            case '!': // register facility string.
+                if ( buffer.isCompleteFirstLine() ) {
+                    message = buffer.getToCr();
+                    processAddNewFacility( message );
+                }
+                break;
+*/
+            case 'D' : // 44 45 46
+                if ( buffer.isCompleteFirstLine() ) {
+                    message = buffer.getToCr();
+                    printf( "\n\tArduino Debug (%d): '%s'\n", message.length(), message.c_str() );
+                }
+                break;
+            case 'S': // request for file size in bytes before sending file to CBM^M
+                buffer.getFirstChars( 1 );
+                m_iface.processGetOpenFileSize( serial );
+                break;
             case 'O' : // 4F 04 00 24
                 data_length = buffer.getSecondChar();
                 if ( data_length >= 4 ) {
@@ -77,24 +102,6 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
                         m_iface.processOpenCommand( serial, channel, filename );
                     }
                 }
-                break;
-            case 'L' : // 4C
-                buffer.getFirstChars( 1 );
-                m_iface.processLineRequest( serial );
-                break;
-            case 'D' : // 44 45 46
-                if ( buffer.isCompleteFirstLine() ) {
-                    message = buffer.getToCr();
-                    printf( "\n\tArduino Debug (%d): '%s'\n", message.length(), message.c_str() );
-                }
-                break;
-            case 'C' :
-                buffer.getFirstChars( 1 );
-                m_iface.processCloseCommand( serial );
-                break;
-            case 'S': // request for file size in bytes before sending file to CBM^M
-                buffer.getFirstChars( 1 );
-                m_iface.processGetOpenFileSize( serial );
                 break;
             case 'R':  // LOAD ,8
                 if ( buffer.length() > 0 ) {
@@ -113,9 +120,35 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
                     fflush(stdout);
                 }
                 break;
+            case 'W': // write characters to file in current file system mode.^M
+                if ( buffer.length() > 1 ) {
+                    data_length = buffer.getSecondChar();
+                    if ( buffer.length() >= data_length ) {
+                        if ( debug ) printf( "Command W length=%d\n", data_length );
+                        buffer.getFirstChars( 2 );
+                        m_iface.processWriteFileRequest( buffer.getFirstChars( data_length - 2 ) );
+                        // discard all processed (written) bytes from buffer.
+                    }
+                }
+                break;
+            case 'L' : // 4C
+                buffer.getFirstChars( 1 );
+                m_iface.processLineRequest( serial );
+                break;
+            case 'C' :
+                buffer.getFirstChars( 1 );
+                m_iface.processCloseCommand( serial );
+                break;
+            case 'E': // Ask for translation of error string from error code
+                if ( buffer.length() >= 2 ) {
+                    m_iface.processErrorStringRequest( serial, static_cast<CBM::IOErrorMessage>( buffer.getSecondChar() ) );
+                    buffer.getFirstChars( 2 );
+                }
+                break;
             default:
                 buffer.show_content(); // For debug only
                 printf( "Invalid command: %c. Buffer length=%d\n", cmd1, buffer.length() );
+                exit(1);
                 break;
         }
     }
@@ -151,7 +184,7 @@ void startC1541( string prgname ) {
     Buffer buffer = Buffer();
 
     const string devName = "/dev/ttyUSB0";
-    Serial serial( devName );
+    Serial serial( devName, debug );
 
     Interface m_iface;
     m_iface.setPrg( prgname );

@@ -17,7 +17,9 @@ public:
     void processLineRequest( Serial serial );
     void processCloseCommand( Serial serial );
     void processGetOpenFileSize( Serial serial );
+    void processWriteFileRequest( const QByteArray& theBytes );
     int processReadFileRequest( Serial serial, unsigned short length = 0 );
+    void processErrorStringRequest( Serial serial, CBM::IOErrorMessage code );
 private:
     // Device OPEN channels.
     // Special channels.
@@ -39,6 +41,7 @@ private:
     const char CBM_DOLLAR_SIGN = '$';
 
     unsigned char deviceNumber; // 8, 9, ...
+    string errorStringFromCode( CBM::IOErrorMessage code ) const;
     void createDirectoryListing();
     void send_line( short lineNo, const string& text );
     void sendOpenResponse( Serial serial, char code ) const;

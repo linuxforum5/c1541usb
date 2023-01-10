@@ -11,8 +11,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-Serial::Serial( const string devName ) {
-    debug = false;
+Serial::Serial( const string devName, bool deb ) {
+    debug = deb;
     serial_fd = Serial::Open( devName.c_str(), B115200 );
     if ( serial_fd == -1 ) {
         printf( "Error opening the serial device: %s\n", devName.c_str() );
@@ -93,3 +93,5 @@ int Serial::Read( char *data, int size, int timeout_usec ) {
 void Serial::Close() {
     close( serial_fd );
 }
+
+bool Serial::getDebug() { return debug; }

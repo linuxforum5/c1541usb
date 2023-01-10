@@ -10,11 +10,12 @@ class Serial {
 
     public:
 //         Serial();
-        Serial( const string devName );
+        Serial( const string devName, bool debub );
 
         void Send( const string data );
         int Read( char *data, int size, int timeout_usec );
         void Close();
+        bool getDebug();
     private:
         int serial_fd;
         int Open( const char* serial_name, speed_t baud );

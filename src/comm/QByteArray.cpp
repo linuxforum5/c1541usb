@@ -15,6 +15,11 @@ QByteArray::QByteArray( const string str ) {
     for( int i=0; i<buf_length; i++ ) buf[i] = str.at(i);
 }
 
+QByteArray::QByteArray( int size, unsigned char c ) {
+    for( int i=0; i<size; i++ ) buf[i] = c;
+    buf_length = size;
+}
+
 unsigned char QByteArray::at( int index ) { return buf[ index ]; }
 
 void QByteArray::prepend( unsigned char c ) {
@@ -27,6 +32,14 @@ void QByteArray::prepend( unsigned char c ) {
 QByteArray QByteArray::append( unsigned char c ) {
     buf[ buf_length ] = c;
     buf_length++;
+    return *this;
+}
+
+QByteArray QByteArray::append( const char* str ) {
+    for( int i=0; str[ i ]; i++ ) {
+        buf[ buf_length ] = str[ i ];
+        buf_length++;
+    }
     return *this;
 }
 
@@ -44,6 +57,10 @@ bool QByteArray::eq( const unsigned char c ) {
     return buf_length==1 && buf[ 0 ] == c;
 }
 
+bool QByteArray::isEmpty() { return buf_length==0; }
+
+int QByteArray::length() { return buf_length; }
+
 string QByteArray::to_string() {
     buf[ buf_length ] = 0;
     string str = "";
@@ -56,12 +73,18 @@ string QByteArray::to_string() {
     return str;
 }
 
-const unsigned char* QByteArray::c_str() {
+const char* QByteArray::c_str() {
+    buf[ buf_length ] = 0;
+    return (char*)buf;
+}
+
+const unsigned char* QByteArray::uc_str() {
     buf[ buf_length ] = 0;
     return buf;
 }
 
 QByteArray QByteArray::mid( int from, int length ) {
+    if ( length == 0 ) length = buf_length - from;
     unsigned char sub[ length ];
     for( int i=0; i<length; i++ )
         sub[i]=buf[from+i];
