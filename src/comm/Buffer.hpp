@@ -20,6 +20,7 @@ class Buffer {
         void show_content(); // For debug only
         QByteArray getFirstChars( int n );
         string getToCr();
+        int firstEOL; // A teljes első sor hossza EOL nélkül, ha van teljes első sor, különben -1, azaz az első EOL indexe
     private:
         void setFirstEOL();
         void shift( int n ); // Balra léptet n karaktert, a baloldaliak kihullanak.
@@ -28,7 +29,6 @@ class Buffer {
 
         char buf[ max_size ];
         int top; // Index of first free space
-        int firstEOL; // A teljes első sor hossza EOL nélkül, ha van teljes első sor, különben -1, azaz az első EOL indexe
 };
 
 #endif // BUFFER_HPP

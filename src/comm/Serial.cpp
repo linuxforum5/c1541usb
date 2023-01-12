@@ -58,13 +58,13 @@ int Serial::Open( const char* serial_name, speed_t baud ) {
     return fd;
 }
 
-void Serial::Send( const string data ) {
-    const char* data8 = data.c_str();
+void Serial::Send( QByteArray data ) {
+    const unsigned char* data8 = data.uc_str();
     write( serial_fd, data8, data.length() );
     if ( debug ) {
-        printf( "<--- Response sent (%d):", data.length() );
+        printf( "<--- Response sent (%d bytes):", data.length() );
         for( int i=0; i<data.length(); i++ )
-            printf( " %02X", (unsigned char)data8[i] );
+            printf( " %02X", data8[i] );
         printf( "\n" );
     }
 }

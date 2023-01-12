@@ -17,10 +17,12 @@
 #include "comm/Buffer.hpp"
 #include "comm/Interface.hpp"
 #include "comm/Serial.hpp"
+#include "comm/Config.hpp"
 
 using namespace std;
 
-bool debug = true;
+Config config;
+
 // const unsigned char* response = "OK>8|5|4|3|7|2|2022-12-28.17:00:29\r";
 bool handshake_begin = false; // Ha megkezdtük a kapcsolódást
 bool connection_established = false; // Ha sikerült is
@@ -28,7 +30,7 @@ bool connection_established = false; // Ha sikerült is
 void processLine( Serial serial, char* data, int length, Interface &m_iface ) {
     if ( length ) {
         if ( connection_established ) {
-            if ( debug ) {
+            if ( config.debug ) {
                 printf( "---> Request ( length=%d )", length );
                 for( int i=0; i<length; i++ ) printf( " %02X", data[i] );
                 printf( "\n" );
@@ -40,7 +42,7 @@ void processLine( Serial serial, char* data, int length, Interface &m_iface ) {
             }
             // m.processData( data, length );
         } else if ( handshake_begin ) { // Itt várjuk a válasz
-            if ( debug ) printf( "---> Request ( length=%d ) %s\n", length, data );
+            if ( config.debug ) printf( "---> Request ( length=%d ) %s\n", length, data );
             if ( length == 43 ) { // Last init response
                 if ( !strcmp( data, "DIMArduino time set to: 2022-12-28.17:00:29") ) {
                     printf( "\tConnection established\n" );
@@ -48,10 +50,10 @@ void processLine( Serial serial, char* data, int length, Interface &m_iface ) {
                 }
             }
         } else if ( length == 17 ) { // without '\r'
-            if ( debug ) printf( "---> Request ( length=%d ) %s\n", length, data );
+            if ( config.debug ) printf( "---> Request ( length=%d ) %s\n", length, data );
             if ( !strcmp( data, "connect_arduino:2" ) ) {
                 printf( "\tConnection string found!\n" );
-                const string response = "OK>8|5|4|3|7|2|2022-12-28.17:00:29\r";
+                QByteArray response( "OK>8|5|4|3|7|2|2022-12-28.17:00:29\r" );
                 serial.Send( response );
                 handshake_begin = true;
             }
@@ -72,7 +74,7 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
         char cmd1 = buffer.getFirstChar();
         unsigned char data_length;
         unsigned char channel;
-        if ( debug ) buffer.show_content(); // For debug only
+        if ( config.debug ) buffer.show_content(); // For debug only
         switch( cmd1 ) {
 /*
             case '!': // register facility string.
@@ -84,17 +86,21 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
 */
             case 'D' : // 44 45 46
                 if ( buffer.isCompleteFirstLine() ) {
+                    if ( serial.getDebug() ) printf( "---> D to CR. Buffer size: %d firstEOL=%d.\n", buffer.length(), buffer.firstEOL );
+// buffer.show_content();
                     message = buffer.getToCr();
                     printf( "\n\tArduino Debug (%d): '%s'\n", message.length(), message.c_str() );
                 }
                 break;
             case 'S': // request for file size in bytes before sending file to CBM^M
                 buffer.getFirstChars( 1 );
+                if ( serial.getDebug() ) printf( "---> S (1 byte)\n" );
                 m_iface.processGetOpenFileSize( serial );
                 break;
             case 'O' : // 4F 04 00 24
                 data_length = buffer.getSecondChar();
                 if ( data_length >= 4 ) {
+                    if ( serial.getDebug() ) printf( "---> O (4 byte)\n" );
                     if ( buffer.length() >= data_length ) { // Minden adat már a buffer-ban van
                         QByteArray command = buffer.getFirstChars( data_length );
                         channel = command.at( 2 );
@@ -123,8 +129,9 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
             case 'W': // write characters to file in current file system mode.^M
                 if ( buffer.length() > 1 ) {
                     data_length = buffer.getSecondChar();
+                    if ( serial.getDebug() ) printf( "---> W (%d bytes)\n", data_length );
                     if ( buffer.length() >= data_length ) {
-                        if ( debug ) printf( "Command W length=%d\n", data_length );
+                        if ( config.debug ) printf( "Command W length=%d\n", data_length );
                         buffer.getFirstChars( 2 );
                         m_iface.processWriteFileRequest( buffer.getFirstChars( data_length - 2 ) );
                         // discard all processed (written) bytes from buffer.
@@ -133,21 +140,25 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
                 break;
             case 'L' : // 4C
                 buffer.getFirstChars( 1 );
+                if ( serial.getDebug() ) printf( "---> L (1 byte)\n" );
                 m_iface.processLineRequest( serial );
                 break;
             case 'C' :
                 buffer.getFirstChars( 1 );
+                if ( serial.getDebug() ) printf( "---> C (1 byte)\n" );
                 m_iface.processCloseCommand( serial );
                 break;
             case 'E': // Ask for translation of error string from error code
                 if ( buffer.length() >= 2 ) {
+                    if ( serial.getDebug() ) printf( "---> E (2 bytes)\n" );
                     m_iface.processErrorStringRequest( serial, static_cast<CBM::IOErrorMessage>( buffer.getSecondChar() ) );
                     buffer.getFirstChars( 2 );
                 }
                 break;
             default:
                 buffer.show_content(); // For debug only
-                printf( "Invalid command: %c. Buffer length=%d\n", cmd1, buffer.length() );
+                printf( "Invalid command: '%c'. Buffer length=%d\n", cmd1, buffer.length() );
+                buffer.show_content();
                 exit(1);
                 break;
         }
@@ -156,11 +167,13 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
 
 void processBufferData( Serial serial, Buffer &buffer, Interface &m_iface ) {
     if ( !connection_established && buffer.isCompleteFirstLine() ) {
-        char* line = buffer.readFirstLine();
-        if ( line != NULL ) { // Sikerült a bufferből az első sort kiolvasni
-            if ( buffer.firstLineLength() > 0 )
-                processLine( serial, line, buffer.firstLineLength(), m_iface );
-            buffer.dropFirstLine();
+        if ( buffer.isCompleteFirstLine() ) {
+            char* line = buffer.readFirstLine();
+            if ( line != NULL ) { // Sikerült a bufferből az első sort kiolvasni
+                if ( buffer.firstLineLength() > 0 )
+                    processLine( serial, line, buffer.firstLineLength(), m_iface );
+                buffer.dropFirstLine();
+            }
         }
     } else if ( connection_established ) {
         manage_cmds( serial, buffer, m_iface );
@@ -176,18 +189,18 @@ void signal_callback_handler( int signum ) {
 
 bool processing = false; // for timeout debug only
 
-void startC1541( string prgname ) {
+void startC1541() {
+
     bool connection_established = false;
 
     int rdlen = 0;
     char data[ 256 ];
     Buffer buffer = Buffer();
 
-    const string devName = "/dev/ttyUSB0";
-    Serial serial( devName, debug );
+    Serial serial( config.serialDevice, config.debug );
 
-    Interface m_iface;
-    m_iface.setPrg( prgname );
+    Interface m_iface( config.media, config.cbmDeviceNumber );
+//    m_iface.setPrg( prgname );
     do {
         processBufferData( serial, buffer, m_iface );
         if ( rdlen > 0 ) { // Vár adat még a data tömbben, ami nem fért a buffer-be
@@ -203,7 +216,7 @@ void startC1541( string prgname ) {
                 exit(1);
             } else {  /* rdlen == 0 */
                 if ( processing ) {
-                    if ( debug ) printf( "\tTimeout from read... (Ctrl+C to quit) Buffer length = %d\n", buffer.length() );
+                    if ( config.debug ) printf( "\tTimeout from read... (Ctrl+C to quit) Buffer length = %d\n", buffer.length() );
                     processing = false;
                 }
             }
@@ -212,6 +225,7 @@ void startC1541( string prgname ) {
     serial.Close();
 }
 
+/*
 void startC1541check( string prgname ) {
     if ( FILE* f = fopen( prgname.c_str(), "rb" ) ) {
         fclose( f );
@@ -221,41 +235,72 @@ void startC1541check( string prgname ) {
         exit(1);
     }
 }
+*/
 
 void showHelp() {
-    printf( "c1541\n" );
+    printf( "c1541 Vesion 0.01\n" );
     printf( "Commodore 1541 emulator over USB connected Arduino.\n" );
     printf( "Usage:\n" );
-    printf( "c1541 option\n" );
+    printf( "c1541 [ options ] [ mediaFile ]\n" );
+    printf( "Possible media files:\n" );
+    printf( "  - Directory. Each file in directory is a file on a disk.\n" );
+    printf( "  - PRG file. The disk conatins only this one PRG file.\n" );
+    printf( "  - D64 file. The D64 file as a disk content.\n" );
+    printf( "If media file no define,9 the default value is the current directory.\n" );
     printf( "Options:\n" );
-    printf( "-p prgFilename Commodore program file stored in PRG format, with .PRG extension.\n" );
+    printf( "  -d n        Commodore device number. Default is 8.\n" );
+    printf( "  -c filename Config file.\n" );
+    printf( "  -v          Verbose mode (debug).\n" );
+    printf( "  -s device   Serial device name. Default is /dev/ttyUSB0\n" );
+    printf( "  -h          This help screen.\n" );
     exit(1);
 }
 
 int main( int argc, char *argv[] ) {
-    if ( argc < 3 ) {
+/*
+    QByteArray data;
+    data = data.append( 'C' ).append( 8 );
+    printf( "L=%d\n", data.length() );
+exit(1);
+*/
+    int opt;
+    // put ':' in the starting of the
+    // string so that program can 
+    //distinguish between '?' and ':' 
+    signal(SIGINT, signal_callback_handler);
+    while( ( opt = getopt( argc, argv, ":vh?d:c:s:" ) ) != -1 )  {
+        switch( opt ) {
+            case 'v':
+                config.debug = true;
+                break;
+            case 'h': 
+            case '?': 
+                showHelp();
+                break;
+            case 'd': // deviceNumber
+                config.cbmDeviceNumber = atoi( optarg );
+                break;
+            case 's': // serial device
+                config.serialDevice = atoi( optarg );
+                break;
+            case 'c': // config file
+                config.loadFromFile( optarg );
+                break; 
+            case ':': 
+                printf( "option needs a value\n" ); 
+                break; 
+        } 
+    }
+    // optind is for the extra arguments
+    // which are not parsed
+    if ( argc - optind > 1 ) {
+        printf( "Only one media enabled!\n" );
         showHelp();
     } else {
-        signal(SIGINT, signal_callback_handler);
-        int c;
-        while ((c = getopt(argc, argv, "?h:p:d")) != -1) {
-            switch (c) {
-                case 'h':
-                case '?':
-                    showHelp();
-                    break;
-                case 'p':
-                    startC1541check( optarg );
-                    break;
-                case 'd': 
-                    break;
-                default:
-                    showHelp();
-                    break;
-            }
+        for(; optind < argc; optind++){
+            config.media = argv[ optind ]; // Egyelőre csak 1
         }
-        argc -= optind; 
-        argv += optind; 
+        startC1541();
     }
     return 0;
 }

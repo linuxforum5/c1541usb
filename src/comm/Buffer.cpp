@@ -12,6 +12,10 @@ void Buffer::show_content() {
         printf( " %02X", buf[i] );
     }
     printf( "\n" );
+    if ( firstEOL >= top ) {
+        printf( "FirstEOL error! Top=%d, firstEOL=%d\n", top, firstEOL );
+        exit(1);
+    }
 }
 
 int Buffer::appendData( const char* data, int length ) {
@@ -76,8 +80,13 @@ void Buffer::shift( int n ) {
             while( i < top ) // Van mozgatandó adat
                 buf[ j++ ] = buf[ i++ ];
             top -= n;
+            if ( firstEOL >= n )
+                firstEOL -= n;
+            else
+                firstEOL = -1;
         } else {
             top = 0;
+            firstEOL = -1;
         }
     }
 }

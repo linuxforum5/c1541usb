@@ -5,14 +5,14 @@
 #include <iostream>
 #include <list>
 #include "Serial.hpp"
-#include "../disks/DiskBase.hpp"
+#include "../disks/NativeFs.hpp"
 
 using namespace std;
 
 class Interface {
 public:
-    Interface();
-    bool setPrg( string prgFilename );
+    Interface( string media, unsigned char cbmDevicenumber );
+//    bool setPrg( string prgFilename );
     void processOpenCommand( Serial serial, unsigned char channel, QByteArray &cmd /*, bool localImageSelectionMode = false */ );
     void processLineRequest( Serial serial );
     void processCloseCommand( Serial serial );
@@ -41,6 +41,7 @@ private:
     const char CBM_DOLLAR_SIGN = '$';
 
     unsigned char deviceNumber; // 8, 9, ...
+    string getLabelLine( string diskLabel );
     string errorStringFromCode( CBM::IOErrorMessage code ) const;
     void createDirectoryListing();
     void send_line( short lineNo, const string& text );
@@ -48,7 +49,7 @@ private:
     string createFilenameLine( string name, string type3 );
     list<string> m_dirListing;
     OpenState m_openState;
-    DiskBase disk;
+    NativeFs disk;
     unsigned short m_currReadLength;
     const unsigned short MAX_BYTES_PER_REQUEST = 256;
 };

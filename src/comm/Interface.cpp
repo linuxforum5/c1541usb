@@ -41,25 +41,27 @@ const list<string> s_IOErrorMessages = { "00,OK"
 const string s_unknownMessage = "99,UNKNOWN ERROR";
 const string s_errorEnding = ",00,00";
 
-Interface::Interface() {
+Interface::Interface( string media, unsigned char cbmDeviceNumber ) {
+    deviceNumber = cbmDeviceNumber;
     m_dirListing = {};
     m_openState = O_NOTHING; // O_DIR, O_FILE
-    disk = DiskBase();
-    deviceNumber = 8;
+    disk = NativeFs();
+    disk.setPath( media );
     m_currReadLength = MAX_BYTES_PER_REQUEST; // Maximum ennyi bájtot küldhetünk vissza egyszerre
 }
-
+/*
 bool Interface::setPrg( string prgFilename ) {
     return disk.setPrg( prgFilename );
 }
-
-void Interface::processOpenCommand( Serial serial, unsigned char channel, QByteArray &filename /*, bool localImageSelectionMode = false */ ) {
+*/
+void Interface::processOpenCommand( Serial serial, unsigned char channel, QByteArray &filenameOrCmd /*, bool localImageSelectionMode = false */ ) {
 //    string line;
 //    string fn = filename.to_string();
-    printf( "Start open command. Channel: %d, fn: '%s'\n", channel, filename.c_str() );
+    printf( "Start open command. Channel: %d, fn: '%s'\n", channel, filenameOrCmd.c_str() );
+    CBM::IOErrorMessage m_queuedError;
     switch( channel ) {
 /*
-        case CBM::CMD_CHANNEL: // cmd = filename
+        case CBM::CMD_CHANNEL: // cmd = filenameOrCmd
             // command channel command, or request for status if empty.
             if ( cmd.isEmpty() or ( cmd.length() == 1 and cmd.at(0) == '\r' ) ) {
                 // Response: ><code><CR>
@@ -79,17 +81,19 @@ void Interface::processOpenCommand( Serial serial, unsigned char channel, QByteA
             break;
 */
         case READPRG_CHANNEL :
-            if ( filename.eq( CBM_DOLLAR_SIGN ) ) {
+            if ( filenameOrCmd.eq( CBM_DOLLAR_SIGN ) ) {
                 printf( "\tCommodore requested directory list...\n" );
                 m_openState = O_DIR;
                 createDirectoryListing();
             } else {
-                printf( "\tCommodore requested file...\n" );
-                if ( disk.openFile( filename.to_string() ) ) {
+                printf( "\tCommodore requested file '%s' for read...\n", filenameOrCmd.c_str() );
+                m_queuedError = disk.openFile( filenameOrCmd, NativeFs::READ );
+                if ( m_queuedError == CBM::ErrOK ) {
+                    printf( "\tFile open is success\n" );
                     m_openState = O_FILE;
                 } else { // File not found???
-                    printf( "File open error!\n" );
-                    exit(1);
+                    printf( "\tFile open error\n" );
+                    // printf( "File open error!\n" );
                     m_openState = O_FILE_ERR;
                 }
             }
@@ -97,19 +101,19 @@ void Interface::processOpenCommand( Serial serial, unsigned char channel, QByteA
             break;
         case WRITEPRG_CHANNEL : // it was an open file for writing (save) command.
             {
-                CBM::IOErrorMessage m_queuedError = CBM::ErrOK;
+                m_queuedError = CBM::ErrOK;
                 m_openState = O_NOTHING;
  //            if ( disk != NULL ) {
-                bool overwrite = ( filename.at( 0 ) == '@' );
-                if ( overwrite ) filename = filename.mid( 1 ); // Drop '@'
-                if ( filename.isEmpty() )
+                bool overwrite = ( filenameOrCmd.at( 0 ) == '@' );
+                if ( overwrite ) filenameOrCmd = filenameOrCmd.mid( 1 ); // Drop '@'
+                if ( filenameOrCmd.isEmpty() )
                     m_queuedError = CBM::ErrNoFileGiven;
                 else if ( disk.isDiskWriteProtected() )
                     m_queuedError = CBM::ErrWriteProtectOn;
                 else {
-                    m_queuedError = disk.fopenWrite( filename, overwrite );
+                    m_queuedError = disk.openFile( filenameOrCmd, overwrite ? NativeFs::OVERWRITE : NativeFs::CREATE );
                     if ( CBM::ErrOK == m_queuedError ) {
-                        // if ( 0 not_eq m_pListener ) m_pListener->fileSaving(fileName);
+                        // if ( 0 not_eq m_pListener ) m_pListener->fileSaving(fileNameOrCmd);
                         m_openState = overwrite ? O_SAVE_REPLACE : O_SAVE;
                     }
                 }
@@ -119,7 +123,7 @@ void Interface::processOpenCommand( Serial serial, unsigned char channel, QByteA
                 // The code return is according to the values of the IOErrorMessage enum.
                 sendOpenResponse( serial, (char)m_queuedError );
                 if ( serial.getDebug() ) {
-                    printf( "Create file %s\n", ( m_queuedError == CBM::ErrOK ) ? "OK" : "Error" );
+                    printf( "Create file %s is %s\n", filenameOrCmd.c_str(), ( m_queuedError == CBM::ErrOK ) ? "OK" : "Error" );
                 }
             }
             break;
@@ -137,14 +141,18 @@ void Interface::processWriteFileRequest( const QByteArray& theBytes ) {
 void Interface::processCloseCommand( Serial serial ) {
     QByteArray data;
     if ( m_openState == O_SAVE or m_openState == O_SAVE_REPLACE or m_openState == O_FILE ) {
-        string name = disk.getOpenedFilename();
+        string name = disk.getOpenedFileEntry().filename;
         // Small 'n' means last operation was a save operation.
-        data.append( m_openState == O_SAVE or m_openState == O_SAVE_REPLACE ? 'n' : 'N' ).append( (char)name.length() ).append( name.c_str() );
+        data = data.append( m_openState == O_SAVE or m_openState == O_SAVE_REPLACE ? 'n' : 'N' ).append( (char)name.length() ).append( name.c_str() );
         disk.closeFile();
+        if ( serial.getDebug() ) printf( "Close file read response %d bytes\n", data.length() );
     } else { // Means CLOSED and the drive number (that MAY have changed due to a comamnd).
-        data.append('C').append( deviceNumber );
+printf( "**** L0: %d ( deviceNumber = %d)\n", data.length(), deviceNumber );
+        data = data.append( 'C' ).append( deviceNumber );
+printf( "**** L1: %d ( deviceNumber = %d)\n", data.length(), deviceNumber );
+        if ( serial.getDebug() ) printf( "Close dir list response %d bytes\n", data.length() );
     }
-    serial.Send( data.to_string() );
+    serial.Send( data );
     m_openState = O_NOTHING;
 }
 
@@ -154,7 +162,7 @@ void Interface::processErrorStringRequest( Serial serial, CBM::IOErrorMessage co
     QByteArray retStr( 1, ':' );
     // append message and the common ending and terminate with CR.
     string str = errorStringFromCode( code ) + s_errorEnding + '\r';
-    serial.Send( retStr.append( str.c_str() ).to_string() );
+    serial.Send( retStr.append( str.c_str() ) );
 } // processErrorStringRequest
 
 string Interface::errorStringFromCode( CBM::IOErrorMessage code ) const {
@@ -170,19 +178,31 @@ string Interface::errorStringFromCode( CBM::IOErrorMessage code ) const {
 void Interface::sendOpenResponse( Serial serial, char code ) const {
     // Response: ><code><CR>
     // send back response / result code to uno.
-    string response = QByteArray().append('>').append(code).append('\r').to_string();
+    QByteArray response = QByteArray().append( '>' ).append( code ).append( '\r' );
     printf( "\tresponse open command received\n" );
     serial.Send( response );
 } // sendOpenResponse
 
+string Interface::getLabelLine( string diskLabel ) {
+    int space_counter = 28 - diskLabel.length();
+    // line length 23
+    string line = "\x12\"";
+    line.append( space_counter, ' ' );
+    line.append( 1, '\"' );
+    line.append( diskLabel );
+    line.append( 1, '\"' ); // Invert face, "
+    return line;
+}
+
 void Interface::createDirectoryListing() {
-    send_line( 0, disk.getLabelLine() );
+    send_line( 0, getLabelLine( disk.getLabel() ) );
     for( int i=0; i<disk.getFilesCounter(); i++ ) {
-        File file = disk.getFile( i );
-        string line = createFilenameLine( file.getFilename(), file.getType3() );
-        unsigned short fileSize = file.getSizeKb();
+        FileEntry cbmFileEntry = disk.getCbmFileEntry( i );
+        string line = createFilenameLine( cbmFileEntry.filename, cbmFileEntry.type3 );
+        unsigned short fileSizeKB = cbmFileEntry.size / 1024;
+        if ( !fileSizeKB || fileSizeKB*1024 != cbmFileEntry.size ) fileSizeKB++; // used block counter: ceil
         // Send initial spaces (offset) according to file size
-        send_line( fileSize, line.substr((int)log10((double)fileSize))); // A méret mérete karakterekben
+        send_line( fileSizeKB, line.substr((int)log10((double)fileSizeKB))); // A méret mérete karakterekben
     }
 } // sendListing
 
@@ -199,7 +219,7 @@ string Interface::createFilenameLine( string name, string type3 ) {
 
 void Interface::send_line( short lineNo, const string& text ) {
 // printf( "SENDLINE1 (%d): '%s'\n", text.length(), text.c_str() );
-    QByteArray line( text/*.toLocal8Bit()*/ );
+    QByteArray line( text );
     // the line number is included with the line itself. It goes in with lobyte,hibyte.
     line.prepend( (unsigned char)((lineNo bitand 0xFF00) >> 8) );
     line.prepend( (unsigned char)(lineNo bitand 0xFF) );
@@ -217,21 +237,21 @@ void Interface::processLineRequest( Serial serial ) {
 //    if( O_INFO == m_openState or O_DIR == m_openState ) {
     if ( m_dirListing.empty() ) {
         printf( "\tResponse content is empty.\n" );
-        string response = "l";
+        QByteArray response( "l" );
         serial.Send( response );
     } else {
         printf( "\tSend respone line for file content\n" );
-        string line = m_dirListing.front();
+        QByteArray line( m_dirListing.front() );
         serial.Send( line );
         m_dirListing.pop_front();
     }
 }
 
 void Interface::processGetOpenFileSize( Serial serial ) {
-    unsigned short size = disk.openedFileSize();
+    unsigned short size = disk.getOpenedFileEntry().size;
     QByteArray data;
     unsigned char high = size >> 8, low = size bitand 0xff;
-    serial.Send( data.append( 'S' ).append( high ).append( low).to_string() );
+    serial.Send( data.append( 'S' ).append( high ).append( low) );
     printf( "<--- Send file size: %u = %04X (H:%02X L:%02X)\n", size, size, high, low );
 } // processGetOpenedFileSize
 
@@ -247,8 +267,8 @@ int Interface::processReadFileRequest( Serial serial, unsigned short length ) {
         m_currReadLength = length;
     // NOTE: -2 here because we need two bytes for the protocol.
     for ( count = 0; count < m_currReadLength - 2 and not atEOF; count++ ) {
-        data.append( disk.getOpenedFile()->getc() );
-        atEOF = disk.getOpenedFile()->isEOF();
+        data.append( disk.getc() );
+        atEOF = disk.isEOF();
     }
 // progress meter:
 //    if ( 0 not_eq m_pListener )
@@ -257,7 +277,7 @@ int Interface::processReadFileRequest( Serial serial, unsigned short length ) {
     data.prepend( count );
     // If we reached end of file, head byte in answer indicates with 'E' instead of 'B'.
     data.prepend( atEOF ? 'E' : 'B' );
-    serial.Send( data.to_string() );
+    serial.Send( data );
     return disk.openedFilePosPercent();
 }
 

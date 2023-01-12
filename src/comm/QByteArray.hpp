@@ -17,6 +17,7 @@ class QByteArray {
         void prepend( unsigned char c );
         QByteArray append( unsigned char c );
         QByteArray append( const char* str );
+        QByteArray append( string str );
         string to_string();
         const char* c_str();
         const unsigned char* uc_str();

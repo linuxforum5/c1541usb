@@ -2,15 +2,15 @@
 #define DISKBASE_HPP
 
 #include <iostream>
-#include "Prg.hpp"
-#include "../comm/QByteArray.hpp"
-#include "../comm/CBM.hpp"
+#include "DiskBase.hpp"
 
 using namespace std;
 
-class DiskBase {
-public:
-    DiskBase();
+class NativeFs : DiskBase {
+    public:
+        NativeFs();
+        
+
     bool setPrg( string prgFilename );
     unsigned char getDeviceNumber();
     string getLabelLine();

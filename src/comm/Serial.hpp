@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <termios.h>
+#include "QByteArray.hpp"
 
 using namespace std;
 
@@ -10,9 +11,9 @@ class Serial {
 
     public:
 //         Serial();
-        Serial( const string devName, bool debub );
+        Serial( const string devName, bool debug );
 
-        void Send( const string data );
+        void Send( QByteArray data );
         int Read( char *data, int size, int timeout_usec );
         void Close();
         bool getDebug();
