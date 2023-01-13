@@ -15,7 +15,7 @@ NativeFs::NativeFs() {
 void NativeFs::setPath( string path ) {
     base_path = path;
     closeFile();
-    if ( FILE* f = fopen( path.append( ".label" ).c_str(), "r" ) ) {
+    if ( FILE* f = fopen( path.append( "/" ).append( ".label" ).c_str(), "r" ) ) {
         diskLabel = file_get_contents( f );
         fclose( f );
     }
@@ -77,8 +77,8 @@ FileEntry NativeFs::getCbmFileEntry( int i ) {
 //printf( "Basename is '%s'\n", basename.c_str() );
                     string type = string(entry->d_name).substr( len-3 );
 //printf( "Type3 is '%s'\n", type.c_str() );
-                    fe.filename = cbm_filename_format( basename );
-                    fe.type3 = cbm_filename_format( type );
+                    fe.filename = CBM::fn2cbm( basename.c_str() );
+                    fe.type3 = CBM::fn2cbm( type.c_str() );
                     fe.size = get_file_size_from_name( base_path, entry->d_name ) - 2; // .PRG file is bigger with 2 bytes than CBM file
 //printf( "CBM size is %d\n", fe.size );
                 }
@@ -87,10 +87,6 @@ FileEntry NativeFs::getCbmFileEntry( int i ) {
     }
     closedir(dp);
     return fe;
-}
-
-string NativeFs::cbm_filename_format( string filename ) {
-    return boost::to_upper_copy( filename ); // 160=>' ', max length=23, 
 }
 
 bool NativeFs::filename_match( QByteArray sfilename, string cbm_name ) {
@@ -122,7 +118,7 @@ QByteArray NativeFs::seek( QByteArray sfilename ) {
         while ( ( realFilename.length() == 0 ) && ( entry = readdir(dp) ) ) {
             if ( valid_filename( entry->d_name ) ) {
                 int len = strlen( entry->d_name );
-                string cbm_name = cbm_filename_format( string(entry->d_name).substr( 0, len-4 ) );
+                string cbm_name = CBM::fn2cbm( string(entry->d_name).substr( 0, len-4 ).c_str() );
                 if ( filename_match( sfilename, cbm_name ) ) {
                     realFilename = string( entry->d_name);
                 }
@@ -155,8 +151,8 @@ CBM::IOErrorMessage NativeFs::openFile( QByteArray sfilename, OpenMode mode ) {
 //printf( "Mode = %s\n", overwrite ? "OVERWRITE" : "CREATE" );
                 if ( file = fopen( fn, "wb" ) ) {
 //printf( "Create success\n" );
-                    opened.filename = cbm_filename_format( realFilename.mid( 0, -4 ).to_string() );
-                    opened.type3 = cbm_filename_format( realFilename.mid( -3 ).to_string() );
+                    opened.filename = CBM::fn2cbm( realFilename.mid( 0, -4 ).c_str() );
+                    opened.type3 = CBM::fn2cbm( realFilename.mid( -3 ).c_str() );
                     opened.size = get_file_size( file );
 //                    printf( "**** Open to %s '%s' file\n", overwrite ? "overwrite" : "create", fn );
                     return CBM::ErrOK;
@@ -169,8 +165,8 @@ CBM::IOErrorMessage NativeFs::openFile( QByteArray sfilename, OpenMode mode ) {
 //printf( "Open read '%s'\n", fn );
                 if ( file = fopen( fn, "rb" ) ) {
 //printf( "Open is success\n", fn );
-                    opened.filename = cbm_filename_format( realFilename.mid( 0, -4 ).to_string() );
-                    opened.type3 = cbm_filename_format( realFilename.mid( -3 ).to_string() );
+                    opened.filename = CBM::fn2cbm( realFilename.mid( 0, -4 ).c_str() );
+                    opened.type3 = CBM::fn2cbm( realFilename.mid( -3 ).c_str() );
                     opened.size = get_file_size( file );
 //                    printf( "**** Open to read '%s'.'%s' file (size=%d)\n", opened.filename.c_str(), opened.type3.c_str(), opened.size );
                     return CBM::ErrOK;

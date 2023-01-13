@@ -1,6 +1,10 @@
 #ifndef CBM_HPP
 #define CBM_HPP
 
+#include <iostream>
+
+using namespace std;
+
 class CBM {
 public:
     // Device OPEN channels.
@@ -64,6 +68,9 @@ public:
         ErrUnknownError = 99,
         ErrCount
     } IOErrorMessage;
+
+    static char pc2cbm( const char c );
+    static string fn2cbm( const char* filename );
 
 };
 

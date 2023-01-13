@@ -10,7 +10,7 @@ INSTALL_DIR=~/.local/bin
 all: c1541
 
 c1541: $(SRC)/c1541.cpp
-	$(CC) -o $(BIN)/c1541 $(SRC)/c1541.cpp $(SRC)/comm/Buffer.cpp $(SRC)/comm/QByteArray.cpp $(SRC)/comm/Interface.cpp $(SRC)/comm/Config.cpp $(SRC)/comm/Serial.cpp $(SRC)/disks/NativeFs.cpp
+	$(CC) -o $(BIN)/c1541 $(SRC)/c1541.cpp $(SRC)/comm/Buffer.cpp $(SRC)/comm/QByteArray.cpp $(SRC)/comm/CBM.cpp $(SRC)/comm/Interface.cpp $(SRC)/comm/Config.cpp $(SRC)/comm/Serial.cpp $(SRC)/disks/NativeFs.cpp
 #	$(WCC) -o $(WBIN)/c1541 $(SRC)/c1541.cpp $(SRC)/Buffer.cpp $(SRC)/mainw.cpp
 
 clean:

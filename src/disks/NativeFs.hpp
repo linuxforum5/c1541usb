@@ -2,7 +2,6 @@
 #define NATIVEFS_HPP
 
 #include <iostream>
-// #include "Prg.hpp"
 #include "../comm/QByteArray.hpp"
 #include "../comm/CBM.hpp"
 
@@ -35,10 +34,9 @@ public:
     void write( QByteArray data ); // Error if file opened as read
     unsigned char getc(); // read from opened file, if opened as read else error
     bool isEOF(); // File open and eof
-    
+
     int openedFilePosPercent();
     void closeFile();
-    
 
 private:
     string diskLabel;
@@ -47,7 +45,7 @@ private:
     unsigned short get_file_size( FILE* file );
     unsigned short get_file_size_from_name( string path, string name );
     QByteArray seek( QByteArray filename );
-    string cbm_filename_format( string filename );
+    string cbm_filename_format( const char* filename );
     bool valid_filename( string filename );
     string file_get_contents( FILE* f );
     bool filename_match( QByteArray sfilename, string cbm_name );
