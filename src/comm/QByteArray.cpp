@@ -48,6 +48,15 @@ QByteArray QByteArray::append( const char* str ) {
     return *this;
 }
 
+char QByteArray::strcmpLeft( const char* data ) {
+    char cmp = 0;
+    int i = 0;
+    while( i < buf_length && buf[ i ] == data[ i ] ) i++;
+    if ( i == buf_length ) return 0;
+    else if ( buf[ i ] < data[ i ] ) return -1;
+    else return 1;
+}
+
 bool QByteArray::eq( const string str ) {
     bool equ = false;
     if ( str.length() == buf_length ) {

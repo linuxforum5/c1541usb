@@ -44,16 +44,18 @@ void processLine( Serial serial, char* data, int length, Interface &m_iface ) {
         } else if ( handshake_begin ) { // Itt várjuk a válasz
             if ( config.debug ) printf( "---> Request ( length=%d ) %s\n", length, data );
             if ( length == 43 ) { // Last init response
-                if ( !strcmp( data, "DIMArduino time set to: 2022-12-28.17:00:29") ) {
-                    printf( "\tConnection established\n" );
+                QByteArray prefix( "DIMArduino time set to: " );
+                if ( !prefix.strcmpLeft( data ) ) {
+                    printf( "\tConnection to arduino established\n" );
                     connection_established = true;
                 }
             }
         } else if ( length == 17 ) { // without '\r'
             if ( config.debug ) printf( "---> Request ( length=%d ) %s\n", length, data );
             if ( !strcmp( data, "connect_arduino:2" ) ) {
-                printf( "\tConnection string found!\n" );
-                QByteArray response( "OK>8|5|4|3|7|2|2022-12-28.17:00:29\r" );
+                printf( "\tArduino interface v2 found!\n" );
+                QByteArray response = config.getOkResponseString(); // "OK>8|5|4|3|7|2|2023-01-13.12:48:37\r"
+                if ( config.debug ) printf( "Response string: '%s'\n", response.c_str() );
                 serial.Send( response );
                 handshake_begin = true;
             }

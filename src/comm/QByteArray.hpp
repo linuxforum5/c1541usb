@@ -24,6 +24,7 @@ class QByteArray {
         bool eq( const string str );
         bool eq( const unsigned char c );
         bool isEmpty();
+        char strcmpLeft( const char* data ); // -1,0,1 strcmp like
         int length();
     private:
         static const int max_size = 65536;
