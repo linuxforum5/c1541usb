@@ -1,23 +1,25 @@
 #ifndef INTERFACE_HPP
 #define INTERFACE_HPP
 
-#include "QByteArray.hpp"
+#include "ByteArray.hpp"
 #include <iostream>
 #include <list>
 #include "Serial.hpp"
-#include "../disks/NativeFs.hpp"
+#include "../disks/Disk.hpp"
+// #include "../disks/NativeFs.hpp"
+#include "Config.hpp"
 
 using namespace std;
 
 class Interface {
 public:
-    Interface( string media, unsigned char cbmDevicenumber );
+    Interface( Config *conf );
 //    bool setPrg( string prgFilename );
-    void processOpenCommand( Serial serial, unsigned char channel, QByteArray &cmd /*, bool localImageSelectionMode = false */ );
+    void processOpenCommand( Serial serial, unsigned char channel, ByteArray &cmd /*, bool localImageSelectionMode = false */ );
     void processLineRequest( Serial serial );
     void processCloseCommand( Serial serial );
     void processGetOpenFileSize( Serial serial );
-    void processWriteFileRequest( const QByteArray& theBytes );
+    void processWriteFileRequest( const ByteArray& theBytes );
     int processReadFileRequest( Serial serial, unsigned short length = 0 );
     void processErrorStringRequest( Serial serial, CBM::IOErrorMessage code );
 private:
@@ -49,7 +51,7 @@ private:
     string createFilenameLine( string name, string type3 );
     list<string> m_dirListing;
     OpenState m_openState;
-    NativeFs disk;
+    Disk *disk;
     unsigned short m_currReadLength;
     const unsigned short MAX_BYTES_PER_REQUEST = 256;
 };

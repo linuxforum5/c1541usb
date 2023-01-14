@@ -1,7 +1,7 @@
 #ifndef BUFFER_HPP
 #define BUFFER_HPP
 
-#include "QByteArray.hpp"
+#include "ByteArray.hpp"
 
 // class MainWindow;
 
@@ -18,7 +18,7 @@ class Buffer {
         int firstLineLength();
         void dropFirstLine();
         void show_content(); // For debug only
-        QByteArray getFirstChars( int n );
+        ByteArray getFirstChars( int n );
         string getToCr();
         int firstEOL; // A teljes első sor hossza EOL nélkül, ha van teljes első sor, különben -1, azaz az első EOL indexe
     private:

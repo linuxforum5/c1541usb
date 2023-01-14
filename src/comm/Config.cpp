@@ -12,7 +12,16 @@ Config::Config() {
     pin_RESET = 7;
     pin_SRQ_IN = 2;
     debug = false;
+    getNoOkResponseString = "NOK>\r";
 }
+
+void Config::set_media( string filename_with_path ) {
+    while( filename_with_path.length() && filename_with_path.at( filename_with_path.length()-1 ) == '/' )
+        filename_with_path.pop_back();
+    media = filename_with_path;
+}
+
+string Config::get_media() { return media; }
 
 string Config::getOkResponseString() {
     time_t curr_time;

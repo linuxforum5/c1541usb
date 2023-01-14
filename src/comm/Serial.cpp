@@ -11,17 +11,17 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-Serial::Serial( const string devName, bool deb ) {
-    debug = deb;
-    serial_fd = Serial::Open( devName.c_str(), B115200 );
+Serial::Serial( Config *conf ) {
+    debug = conf->debug;
+    serial_fd = Serial::Open( conf->serialDevice.c_str(), B115200 );
     if ( serial_fd == -1 ) {
-        printf( "Error opening the serial device: %s\n", devName.c_str() );
+        printf( "Error opening the serial device: %s\n", conf->serialDevice.c_str() );
         perror( "OPEN" );
         exit( 1 );
     }
     char data[500];
     while ( Read( data, sizeof( data ), 10000 ) > 0 ); // Clear tty buffer
-    printf( "SERIAL OPEN:%s (%d)\n", devName.c_str(), serial_fd );
+    if ( debug ) printf( "SERIAL OPEN:%s (%d)\n", conf->serialDevice.c_str(), serial_fd );
 }
 
 int Serial::Open( const char* serial_name, speed_t baud ) {
@@ -58,7 +58,7 @@ int Serial::Open( const char* serial_name, speed_t baud ) {
     return fd;
 }
 
-void Serial::Send( QByteArray data ) {
+void Serial::Send( ByteArray data ) {
     const unsigned char* data8 = data.uc_str();
     write( serial_fd, data8, data.length() );
     if ( debug ) {

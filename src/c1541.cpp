@@ -13,7 +13,7 @@
 
 #include <vector>
 
-#include "comm/QByteArray.hpp"
+#include "comm/ByteArray.hpp"
 #include "comm/Buffer.hpp"
 #include "comm/Interface.hpp"
 #include "comm/Serial.hpp"
@@ -44,7 +44,7 @@ void processLine( Serial serial, char* data, int length, Interface &m_iface ) {
         } else if ( handshake_begin ) { // Itt várjuk a válasz
             if ( config.debug ) printf( "---> Request ( length=%d ) %s\n", length, data );
             if ( length == 43 ) { // Last init response
-                QByteArray prefix( "DIMArduino time set to: " );
+                ByteArray prefix( "DIMArduino time set to: " );
                 if ( !prefix.strcmpLeft( data ) ) {
                     printf( "\tConnection to arduino established\n" );
                     connection_established = true;
@@ -54,7 +54,7 @@ void processLine( Serial serial, char* data, int length, Interface &m_iface ) {
             if ( config.debug ) printf( "---> Request ( length=%d ) %s\n", length, data );
             if ( !strcmp( data, "connect_arduino:2" ) ) {
                 printf( "\tArduino interface v2 found!\n" );
-                QByteArray response = config.getOkResponseString(); // "OK>8|5|4|3|7|2|2023-01-13.12:48:37\r"
+                ByteArray response = config.getOkResponseString(); // "OK>8|5|4|3|7|2|2023-01-13.12:48:37\r"
                 if ( config.debug ) printf( "Response string: '%s'\n", response.c_str() );
                 serial.Send( response );
                 handshake_begin = true;
@@ -104,9 +104,9 @@ void manage_cmds( Serial serial, Buffer &buffer, Interface &m_iface ) {
                 if ( data_length >= 4 ) {
                     if ( serial.getDebug() ) printf( "---> O (4 byte)\n" );
                     if ( buffer.length() >= data_length ) { // Minden adat már a buffer-ban van
-                        QByteArray command = buffer.getFirstChars( data_length );
+                        ByteArray command = buffer.getFirstChars( data_length );
                         channel = command.at( 2 );
-                        QByteArray filename = command.mid( 3, data_length-3 );
+                        ByteArray filename = command.mid( 3, data_length-3 );
                         m_iface.processOpenCommand( serial, channel, filename );
                     }
                 }
@@ -199,9 +199,9 @@ void startC1541() {
     char data[ 256 ];
     Buffer buffer = Buffer();
 
-    Serial serial( config.serialDevice, config.debug );
+    Serial serial( &config );
 
-    Interface m_iface( config.media, config.cbmDeviceNumber );
+    Interface m_iface( &config );
 //    m_iface.setPrg( prgname );
     do {
         processBufferData( serial, buffer, m_iface );
@@ -259,12 +259,6 @@ void showHelp() {
 }
 
 int main( int argc, char *argv[] ) {
-/*
-    QByteArray data;
-    data = data.append( 'C' ).append( 8 );
-    printf( "L=%d\n", data.length() );
-exit(1);
-*/
     int opt;
     // put ':' in the starting of the
     // string so that program can 
@@ -300,7 +294,7 @@ exit(1);
         showHelp();
     } else {
         for(; optind < argc; optind++){
-            config.media = argv[ optind ]; // Egyelőre csak 1
+            config.set_media( argv[ optind ] ); // Egyelőre csak 1
         }
         startC1541();
     }

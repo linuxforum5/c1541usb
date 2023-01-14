@@ -1,24 +1,42 @@
 #include "NativeFs.hpp"
 #include <iostream>
-#include <boost/algorithm/string.hpp>
+#include <cstring>
 #include <dirent.h>
+#include <sys/stat.h>
+// #include <filesystem> // C++17
+
+// namespace fs = std::filesystem
 
 using namespace std;
 
-NativeFs::NativeFs() {
-    diskLabel = "DISK BASE";
-    opened = { "", "", 0 };
+NativeFs::NativeFs( Config *conf ) : Disk( conf ) {
     file = NULL;
-    base_path = "";
-}
-
-void NativeFs::setPath( string path ) {
-    base_path = path;
-    closeFile();
+    string path = config->get_media();
     if ( FILE* f = fopen( path.append( "/" ).append( ".label" ).c_str(), "r" ) ) {
         diskLabel = file_get_contents( f );
         fclose( f );
     }
+    printf( "Directory %s mounted as a disk\n", media_path.c_str() );
+}
+
+NativeFs::~NativeFs() {
+    closeFile();
+}
+
+bool NativeFs::is_dir( string filename ) {
+    struct stat s;
+    if ( stat( filename.c_str(), &s ) == 0 ) {
+        if( s.st_mode & S_IFDIR ) {
+            return true; //it's a directory
+        } else if( s.st_mode & S_IFREG ) {
+            return false; //it's a file
+        } else {
+            return false; //something else
+        }
+    } else {
+        return false; //error
+    }
+
 }
 
 string NativeFs::file_get_contents( FILE* f ) {
@@ -29,24 +47,21 @@ string NativeFs::file_get_contents( FILE* f ) {
     return buff;
 }
 
-bool NativeFs::isDiskWriteProtected() { return false; }
-
-string NativeFs::getLabel() { return diskLabel; }
-
 bool NativeFs::valid_filename( string filename ) {
     int len = filename.length();
     if ( len > 4 ) {
-//        return filename.substr( len-4 ) == ".PRG" || filename.substr( len-4 ) == ".prg";
-        return boost::to_upper_copy( filename.substr( len-4 ) ) == ".PRG";
+        return CBM::fn2cbm( filename.substr( len-4 ).c_str() ) == ".PRG";
     } else
         return false;
 }
+
+bool NativeFs::isDiskWriteProtected() { return false; }
 
 int NativeFs::getFilesCounter() {
     int cnt = 0;
     struct dirent *entry = nullptr;
     DIR *dp = nullptr;
-    dp = opendir( base_path.c_str() );
+    dp = opendir( media_path.c_str() );
     if ( dp != nullptr ) {
         while ( ( entry = readdir(dp) ) ) {
             if ( valid_filename( entry->d_name ) ) cnt++;
@@ -56,31 +71,23 @@ int NativeFs::getFilesCounter() {
     return cnt;
 }
 
-FileEntry NativeFs::getCbmFileEntry( int i ) {
+Disk::FileEntry NativeFs::getCbmFileEntry( int i ) {
     FileEntry fe = { "", "", 0 };
     struct dirent *entry = nullptr;
     DIR *dp = nullptr;
 
-    dp = opendir( base_path.c_str() );
+    dp = opendir( media_path.c_str() );
     if ( dp != nullptr ) {
-//printf( "Open dir '%s'. Search for index: %d\n", base_path.c_str(), i );
         int cnt = 0;
         while ( !fe.size && ( entry = readdir(dp) ) ) {
-//printf( "Entry '%s' found\n", entry->d_name );
             if ( valid_filename( entry->d_name ) ) {
-//printf( "Entry '%s' is valid. It is the %d. file.\n", entry->d_name, cnt );
                 if ( cnt++ == i ) {
-//printf( "Found %d. item\n", i );
                     int len = strlen( entry->d_name );
-//printf( "Filename length is %d\n", len );
                     string basename = string(entry->d_name).substr( 0, len-4 );
-//printf( "Basename is '%s'\n", basename.c_str() );
                     string type = string(entry->d_name).substr( len-3 );
-//printf( "Type3 is '%s'\n", type.c_str() );
                     fe.filename = CBM::fn2cbm( basename.c_str() );
                     fe.type3 = CBM::fn2cbm( type.c_str() );
-                    fe.size = get_file_size_from_name( base_path, entry->d_name ) - 2; // .PRG file is bigger with 2 bytes than CBM file
-//printf( "CBM size is %d\n", fe.size );
+                    fe.size = get_file_size_from_name( media_path, entry->d_name ) - 2; // .PRG file is bigger with 2 bytes than CBM file
                 }
             }
         }
@@ -89,16 +96,13 @@ FileEntry NativeFs::getCbmFileEntry( int i ) {
     return fe;
 }
 
-bool NativeFs::filename_match( QByteArray sfilename, string cbm_name ) {
+bool NativeFs::filename_match( ByteArray sfilename, string cbm_name ) {
     int slen = sfilename.length();
-// printf( "Search length: %d\n", slen );
     if ( slen > 0 ) {
-// printf( "SEEK '%s' check '%s'\n", sfilename.c_str(), cbm_name.c_str() );
         if ( sfilename.at( slen-1 ) == '*' ) {
             slen--;
             string sprefix = sfilename.mid( 0, -1 ).to_string();
             string cbm_prefix = cbm_name.substr( 0, slen );
-// printf( "* PREFIX '%s' check '%s'\n", sprefix.c_str(), cbm_prefix.c_str() );
             return sprefix == cbm_prefix;
         } else {
             return sfilename.to_string() == cbm_name;
@@ -108,11 +112,11 @@ bool NativeFs::filename_match( QByteArray sfilename, string cbm_name ) {
     }
 }
 
-QByteArray NativeFs::seek( QByteArray sfilename ) {
+ByteArray NativeFs::seek( ByteArray sfilename ) {
     string realFilename = "";
     struct dirent *entry = nullptr;
     DIR *dp = nullptr;
-    dp = opendir( base_path.c_str() );
+    dp = opendir( media_path.c_str() );
     if ( dp != nullptr ) {
         int cnt = 0;
         while ( ( realFilename.length() == 0 ) && ( entry = readdir(dp) ) ) {
@@ -129,8 +133,8 @@ QByteArray NativeFs::seek( QByteArray sfilename ) {
     return realFilename;
 }
 
-CBM::IOErrorMessage NativeFs::openFile( QByteArray sfilename, OpenMode mode ) {
-    QByteArray realFilename;
+CBM::IOErrorMessage NativeFs::openFile( ByteArray sfilename, OpenMode mode ) {
+    ByteArray realFilename;
     if ( mode == READ || mode == OVERWRITE ) {
         printf( "Search for file pattern '%s'\n", sfilename.c_str() );
         realFilename = seek( sfilename );
@@ -140,44 +144,29 @@ CBM::IOErrorMessage NativeFs::openFile( QByteArray sfilename, OpenMode mode ) {
         realFilename.append( ".PRG" );
     }
     if ( realFilename.length() ) {
-	string ffn = base_path;
+	string ffn = media_path;
         const char* fn = ffn.append("/").append( realFilename.to_string() ).c_str();
-//printf( "Full filename '%s'\n", fn );
         bool overwrite = false;
         switch( mode ) {
             case OVERWRITE :
                 overwrite = true;
-            case CREATE :
-//printf( "Mode = %s\n", overwrite ? "OVERWRITE" : "CREATE" );
-                if ( file = fopen( fn, "wb" ) ) {
-//printf( "Create success\n" );
-                    opened.filename = CBM::fn2cbm( realFilename.mid( 0, -4 ).c_str() );
-                    opened.type3 = CBM::fn2cbm( realFilename.mid( -3 ).c_str() );
-                    opened.size = get_file_size( file );
-//                    printf( "**** Open to %s '%s' file\n", overwrite ? "overwrite" : "create", fn );
-                    return CBM::ErrOK;
-                } else {
-//printf( "Create error\n" );
-                    return CBM::ErrUnknownError;
-                }
-                break;
-            case READ :
-//printf( "Open read '%s'\n", fn );
-                if ( file = fopen( fn, "rb" ) ) {
-//printf( "Open is success\n", fn );
-                    opened.filename = CBM::fn2cbm( realFilename.mid( 0, -4 ).c_str() );
-                    opened.type3 = CBM::fn2cbm( realFilename.mid( -3 ).c_str() );
-                    opened.size = get_file_size( file );
-//                    printf( "**** Open to read '%s'.'%s' file (size=%d)\n", opened.filename.c_str(), opened.type3.c_str(), opened.size );
-                    return CBM::ErrOK;
-                } else
-                    return CBM::ErrUnknownError;
-                break;
+            case CREATE : return open_as( fn, "wb", realFilename ); break;
+            case READ : return open_as( fn, "rb", realFilename ); break;
         }
         return CBM::ErrUnknownError;
     } else {
         return CBM::ErrFileNotFound;
     }
+}
+
+CBM::IOErrorMessage NativeFs::open_as( const char* fn, const char* mode, ByteArray realFilename ) {
+    if ( file = fopen( fn, mode ) ) {
+        opened.filename = CBM::fn2cbm( realFilename.mid( 0, -4 ).c_str() );
+        opened.type3 = CBM::fn2cbm( realFilename.mid( -3 ).c_str() );
+        opened.size = get_file_size( file );
+        return CBM::ErrOK;
+    } else
+        return CBM::ErrUnknownError;
 }
 
 unsigned short NativeFs::get_file_size( FILE* file ) {
@@ -198,17 +187,17 @@ unsigned short NativeFs::get_file_size_from_name( string path, string name ) {
     }
 }
 
-void NativeFs::write( QByteArray data ) {
+void NativeFs::write( ByteArray data ) {
     const unsigned char* d = data.uc_str();
     printf( "**** Write %d bytes into file\n", data.length() );
     fwrite( d, data.length(), 1, file );
 }
 
 void NativeFs::closeFile() {
+    Disk::closeFile();
     if ( file != NULL ) {
         fclose( file );
         file = NULL;
-        opened = { "", "", 0 };
     }
 }
 
@@ -226,4 +215,4 @@ unsigned char NativeFs::getc() {
 
 bool NativeFs::isEOF() { return ftell( file ) >= opened.size; }
 
-FileEntry NativeFs::getOpenedFileEntry() { return opened; }
+Disk::FileEntry NativeFs::getOpenedFileEntry() { return opened; }

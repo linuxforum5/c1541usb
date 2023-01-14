@@ -35,13 +35,13 @@ bool Buffer::isCompleteFirstLine() { return firstEOL > -1; }
 char Buffer::getFirstChar() { return buf[ 0 ]; }
 char Buffer::getSecondChar() { return buf[ 1 ]; }
 
-QByteArray Buffer::getFirstChars( int n ) { // Read and drop firs chars
+ByteArray Buffer::getFirstChars( int n ) { // Read and drop firs chars
     if ( top >= n ) {
         unsigned char ret[ n ];
         for( int i=0; i<n; i++ )
             ret[i]=buf[i];
         shift( n );
-        return QByteArray( ret, n );
+        return ByteArray( ret, n );
     } else {
         printf( "Error: buffer data too small!\n" );
         exit(1);
@@ -95,7 +95,7 @@ string Buffer::getToCr() {
     int i = 0;
     while( i<top && buf[i] != EOL ) i++;
     if ( i < top ) { // Valid line
-        QByteArray str(getFirstChars( i ));
+        ByteArray str(getFirstChars( i ));
         getFirstChars( 1 );
         return str.to_string();
     } else {

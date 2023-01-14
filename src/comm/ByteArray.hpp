@@ -5,19 +5,19 @@
 
 using namespace std;
 
-class QByteArray {
+class ByteArray {
 
     public:
-        QByteArray();
-        QByteArray( unsigned char* bytes, int length );
-        QByteArray( const string str );
-        QByteArray( int size, unsigned char c );
+        ByteArray();
+        ByteArray( unsigned char* bytes, int length );
+        ByteArray( const string str );
+        ByteArray( int size, unsigned char c );
         unsigned char at( int index );
-        QByteArray mid( int from, int length = 0 );
+        ByteArray mid( int from, int length = 0 );
         void prepend( unsigned char c );
-        QByteArray append( unsigned char c );
-        QByteArray append( const char* str );
-        QByteArray append( string str );
+        ByteArray append( unsigned char c );
+        ByteArray append( const char* str );
+        ByteArray append( string str );
         string to_string();
         const char* c_str();
         const unsigned char* uc_str();
